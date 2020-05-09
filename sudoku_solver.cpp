@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string>
 #include <chrono>
+#include <algorithm>
 
 using namespace std;
 const int LEN = 9;
@@ -339,7 +340,7 @@ bool find_twin (int board[LEN][LEN], vector<vector<unordered_set<int> > >& penci
 	return true;
 }
 
-bool brute_force(int board[LEN][LEN], vector<vector<unordered_set<int> > >pencil_mark, vector<vector<int> > empty_grids, int index) {
+bool brute_force_optimized(int board[LEN][LEN], vector<vector<unordered_set<int> > >pencil_mark, vector<vector<int> > empty_grids, int index) {
 	if(index == empty_grids.size()) {
 		return true;
 	}
@@ -355,7 +356,7 @@ bool brute_force(int board[LEN][LEN], vector<vector<unordered_set<int> > >pencil
 		vector<vector<int> > removed_elements;
 		update_pencil_mark(pencil_mark, removed_elements, r, c, val, 0);
 
-		if(brute_force(board, pencil_mark, empty_grids, index + 1)) {
+		if(brute_force_optimized(board, pencil_mark, empty_grids, index + 1)) {
 			return true;
 		}
 		update_pencil_mark(pencil_mark, removed_elements, r, c, val, 1);
@@ -365,7 +366,7 @@ bool brute_force(int board[LEN][LEN], vector<vector<unordered_set<int> > >pencil
 }
 
 
-void solve(int board[LEN][LEN]) {
+void solve_optimized(int board[LEN][LEN]) {
 	vector<vector<unordered_set<int> > >  pencil_mark(LEN, vector<unordered_set<int> > (LEN));
 	vector<vector<int> > empty_grids = create_pencil_mark(board, pencil_mark);
 	bool update_board = false;
@@ -386,7 +387,42 @@ void solve(int board[LEN][LEN]) {
 	}
 
 
-	brute_force(board, pencil_mark, empty_grids, 0);	
+	brute_force_optimized(board, pencil_mark, empty_grids, 0);	
+}
+
+bool is_valid(int board[LEN][LEN], int r, int c, int num) {
+	for(int i = 0; i < LEN; i++) {
+		if(board[r][i] == num || board[i][c] == num 
+			|| board[r/3 * 3 + i/3][c/3 * 3 + i%3] == num) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool helper(int board[LEN][LEN]) {
+	for(int r = 0; r < LEN; r++) {
+		for(int c = 0; c < LEN; c++) {
+			if(board[r][c] == 0) {
+				for(int i = 1; i <= 9; i++) {
+					if(is_valid(board, r, c, i)) {
+						board[r][c] = i;
+						if(helper(board)) {
+							return true;
+						} else {
+							board[r][c] = 0;
+						}
+					}
+				}
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+void solve_brute_force(int board[LEN][LEN]) {
+	helper(board);
 }
 
 void verify(int board[LEN][LEN], int soln[LEN][LEN]) {
@@ -440,12 +476,22 @@ int main() {
 					  		{8,3,7,6,2,1,9,5,4},
 					  		{4,9,1,7,5,8,2,3,6}
 						};
+	int board2[LEN][LEN];
+	copy(&board[0][0], &board[0][0]+LEN*LEN, &board2[0][0]);
 
+	// Brute force algorithm
 	auto start = chrono::high_resolution_clock::now();
-
-	solve(board);
-
+	solve_brute_force(board);
 	auto end = chrono::high_resolution_clock::now();
 	cout << chrono::duration_cast<chrono::milliseconds>(end - start).count() <<endl;
+
+	print_board(board);
+
+	// Optimized algorithm
+	start = chrono::high_resolution_clock::now();
+	solve_optimized(board2);
+	end = chrono::high_resolution_clock::now();
+	cout << chrono::duration_cast<chrono::milliseconds>(end - start).count() <<endl;
+
 	verify(board, soln);
 }
