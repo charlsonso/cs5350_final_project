@@ -7,6 +7,7 @@
 #include <string>
 #include <chrono>
 #include <algorithm>
+#include <omp.h>
 
 using namespace std;
 const int LEN = 9;
@@ -59,6 +60,7 @@ void print_empty_grid(vector<vector<int>> v) {
 
 void initialize_pencil_mark(vector<vector<unordered_set<int> > >& pencil_mark) {
 	unordered_set<int> nums({1,2,3,4,5,6,7,8,9});
+	#pragma comp parallel for collapse(2)
 	for(int r = 0; r < LEN; r++) {
 		for(int c = 0; c < LEN; c++) {
 			pencil_mark[r][c].insert(nums.begin(), nums.end());
@@ -68,6 +70,7 @@ void initialize_pencil_mark(vector<vector<unordered_set<int> > >& pencil_mark) {
 
 void initialize_vec(vector<unordered_set<int> >& v) {
 	unordered_set<int> nums({1,2,3,4,5,6,7,8,9});
+	#pragma omp for
 	for(int i = 0; i < LEN; i++) {
 		v[i].insert(nums.begin(), nums.end());
 	}
@@ -75,6 +78,7 @@ void initialize_vec(vector<unordered_set<int> >& v) {
 
 unordered_set<int> set_intersection(unordered_set<int> v, unordered_set<int> h, unordered_set<int> b) {
 	unordered_set<int> res;
+	#pragma omp for
 	for(int i = 1; i <= 9; i++) {
 		if(v.count(i) > 0 && h.count(i) > 0 && b.count(i) > 0) {
 			res.insert(i);
@@ -99,6 +103,7 @@ vector<vector<int> > create_pencil_mark(int board[LEN][LEN], vector<vector<unord
 	initialize_vec(b);
 	//print_vec("box vec", b);
 
+	#pragma omp for collapse(2)
 	for(int r = 0; r < LEN; r++) {
 		for(int c = 0; c < LEN; c++) {
 			if(board[r][c] != 0) {
@@ -112,7 +117,7 @@ vector<vector<int> > create_pencil_mark(int board[LEN][LEN], vector<vector<unord
 		}
 	}
 
-
+	#pragma omp for
 	for(int i = 0; i < empty_grids.size(); i++) {
 		int r = empty_grids[i][0];
 		int c = empty_grids[i][1];
@@ -157,6 +162,7 @@ void update_pencil_mark(vector<vector<unordered_set<int> > >& pencil_mark, vecto
 }
 
 void remove_pencil_mark(vector<vector<unordered_set<int> > >& pencil_mark, int r, int c, int val) {
+	#pragma omp for
 	for(int i = 0; i < LEN; i++) {
 		// Remove verticle
 		if(pencil_mark[i][c].count(val) > 0) pencil_mark[i][c].erase(val);
@@ -174,6 +180,7 @@ bool elimination(int board[LEN][LEN], vector<vector<unordered_set<int> > >& penc
 	while(can_eliminate) {
 		can_eliminate = false;
 		vector<int> remove_list;
+
 		for(int i = 0; i < empty_grids.size(); i++) {
 			int r = empty_grids[i][0];
 			int c = empty_grids[i][1];
@@ -212,7 +219,7 @@ bool find_lone_ranger(int board[LEN][LEN], vector<vector<unordered_set<int> > >&
 	bool update_board = false;
 
 	//cout << "before lone ranger " << empty_grids.size() << endl;
-
+	#pragma comp parallel for collapse(3)
 	for(int r = 0; r < LEN; r++) {
 		for(int c = 0; c < LEN; c++) {
 			if(pencil_mark[r][c].size() > 0) {
@@ -232,6 +239,7 @@ bool find_lone_ranger(int board[LEN][LEN], vector<vector<unordered_set<int> > >&
 		int r = empty_grids[i][0];
 		int c = empty_grids[i][1];
 		vector<int> remove_val;
+
 		for(int val: pencil_mark[r][c]) {
 			if(v_unique_val[r][val] == 1) {
 				//printf("Found row lone ranger  row: %d, col:%d, val: %d\n", r, c, val);
@@ -250,6 +258,7 @@ bool find_lone_ranger(int board[LEN][LEN], vector<vector<unordered_set<int> > >&
 				remove_list.push_back(i);
 			}
 		}
+
 		for(int rm_val: remove_val) {
 			remove_pencil_mark(pencil_mark, r, c, rm_val);
 		}
@@ -370,19 +379,14 @@ void solve_optimized(int board[LEN][LEN]) {
 	vector<vector<unordered_set<int> > >  pencil_mark(LEN, vector<unordered_set<int> > (LEN));
 	vector<vector<int> > empty_grids = create_pencil_mark(board, pencil_mark);
 	bool update_board = false;
-	//print_pencil_mark("Before", pencil_mark);
+	
 	while(true) {
 		update_board = elimination(board,pencil_mark,empty_grids);
-		if(update_board) {
-			//cout << "Eliminated something" << endl;
-			continue;
-		}
+		if(update_board) {continue;}
+
 		update_board = find_lone_ranger(board, pencil_mark, empty_grids);
-		if(update_board){
-			//cout << "find lone ranger" << endl;
-			continue;	
-		}
-		//find_twin(board, pencil_mark,empty_grids);
+		if(update_board){ continue;}
+
 		break;
 	}
 
@@ -438,19 +442,6 @@ void verify(int board[LEN][LEN], int soln[LEN][LEN]) {
 }
 
 int main() {
-	/*
-	int board [LEN][LEN] = {
-							{5,3,0,0,7,0,0,0,0},
-					  		{6,0,0,1,9,5,0,0,0},
-					  		{0,9,8,0,0,0,0,6,0},
-					  		{8,0,0,0,6,0,0,0,3},
-					  		{4,0,0,8,0,3,0,0,1},
-					  		{7,0,0,0,2,0,0,0,6},
-					  		{0,6,0,0,0,0,2,8,0},
-					  		{0,0,0,4,1,9,0,0,5},
-					  		{0,0,0,0,8,0,0,7,9}
-						};
-	*/
 	//https://www.extremesudoku.info/
 	//5/2/2020 Excessive
 	int board [LEN][LEN] = {
@@ -486,12 +477,15 @@ int main() {
 	cout << chrono::duration_cast<chrono::milliseconds>(end - start).count() <<endl;
 
 	print_board(board);
+	verify(board, soln);
 
 	// Optimized algorithm
 	start = chrono::high_resolution_clock::now();
 	solve_optimized(board2);
 	end = chrono::high_resolution_clock::now();
 	cout << chrono::duration_cast<chrono::milliseconds>(end - start).count() <<endl;
+	
+	print_board(board2);
+	verify(board2, soln);
 
-	verify(board, soln);
 }
